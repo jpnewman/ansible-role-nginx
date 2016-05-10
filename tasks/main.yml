@@ -1,0 +1,73 @@
+---
+# tasks file for jpnewman.nginx
+
+- name: ssl-certs group
+  group: name=ssl-cert state=present
+  become: yes
+  tags: ssl
+
+- name: Make sure nginx user is in ssl-cert
+  user: name=nginx groups=www-data,ssl-cert
+  become: yes
+  tags: nginx
+
+- name: ssl certs dir
+  file: path=/etc/ssl/certs mode=755 state=directory owner=root
+  become: yes
+  tags: ssl
+
+- name: ssl private dir
+  file: path=/etc/ssl/private mode=700 state=directory owner=root
+  become: yes
+  tags: ssl
+
+- name: Copying SSL CA
+  copy:
+    src="{{ ssl_ca_local_path }}"
+    dest="{{ ssl_ca_path }}"
+    owner=0
+    group=ssl-cert
+    mode=0640
+  tags: ssl
+  when: ssl_ca_local_path is defined and ssl_ca_local_path
+
+- name: Copying SSL cert
+  copy:
+    src="{{ ssl_cert_local_path }}"
+    dest="{{ ssl_cert_path }}"
+    owner=0
+    group=0
+    mode=0644
+  tags: ssl
+  when: ssl_cert_local_path is defined and ssl_cert_local_path
+  notify: restart nginx
+
+- name: Copying SSL key
+  copy:
+    src="{{ ssl_key_local_path }}"
+    dest="{{ ssl_key_path }}"
+    owner=0
+    group=ssl-cert
+    mode=0640
+  tags: ssl
+  when: ssl_key_local_path is defined and ssl_key_local_path
+  notify: restart nginx
+
+# Create vhost
+- name: Add managed vhost config file
+  template:
+    src: nginx.conf.j2
+    dest: "{{ nginx_vhost_available_path }}/{{ nginx_vhost_filename }}.conf"
+    mode: 0644
+  tags: vhost
+  notify: reload nginx
+
+- name: Create symlink to nginx.conf
+  file: src="{{ nginx_vhost_available_path }}/{{ nginx_vhost_filename }}.conf" dest="{{ nginx_vhost_path }}/{{ nginx_vhost_filename }}.conf" state=link
+  tags: vhost
+  notify: restart nginx
+
+- name: Check nginx config
+  become: yes
+  command: service nginx configtest
+  register: result
