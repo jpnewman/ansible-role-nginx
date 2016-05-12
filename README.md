@@ -1,5 +1,6 @@
 # jpnewman.nginx
 
+[![Build Status](https://travis-ci.org/jpnewman/ansible-role-nginx.svg?branch=master)](https://travis-ci.org/jpnewman/ansible-role-nginx)
 
 This ansible role configures nginx proxy.
 
