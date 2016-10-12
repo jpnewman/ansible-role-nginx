@@ -90,3 +90,4 @@
   become: yes
   command: service nginx configtest
   register: result
+  changed_when: False
