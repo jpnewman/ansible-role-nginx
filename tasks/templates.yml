@@ -1,0 +1,15 @@
+---
+
+- debug: msg="{{ item.key }}" verbosity=3
+
+- set_fact:
+    servers: "{{ item.value.servers }}"
+    comment: "{{ item.value.comment | default('') }}"
+    extra_directives: "{{ item.value.extra_directives | default('') }}"
+
+- name: Generate nginx configurations
+  template: src=../../templates/nginx.conf.j2 dest=./tmp/{{ item.key }}.conf
+
+- set_fact:
+    servers: ''
+    comment: ''

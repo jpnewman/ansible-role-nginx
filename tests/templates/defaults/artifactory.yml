@@ -1,0 +1,42 @@
+---
+
+nginx_vhosts_data:
+  artifactory:
+    comment: |
+      https://www.jfrog.com/confluence/display/RTF/Configuring+NGINX
+
+      add ssl entries when https has been set in config
+    extra_directives: |
+      ssl_certificate      /etc/nginx/ssl/docker.jfrogdev.com.crt;
+      ssl_certificate_key  /etc/nginx/ssl/docker.jfrogdev.com.key;
+      ssl_session_cache shared:SSL:1m;
+      ssl_prefer_server_ciphers   on;
+
+    servers:
+      - comment: server configuration
+        listen_ports:
+         - 443 ssl
+         - 80
+
+        server_name: docker.jfrogdev.com
+        extra_directives: |
+          if ($http_x_forwarded_proto = '') {
+              set $http_x_forwarded_proto  $scheme;
+          }
+          ## Application specific logs
+          ## access_log /var/log/nginx/docker.jfrogdev.com-access.log timing;
+          ## error_log /var/log/nginx/docker.jfrogdev.com-error.log;
+          rewrite ^/$ /webapp/ redirect;
+          rewrite ^/webapp$ /webapp/ redirect;
+        locations:
+          - location_match: /
+            extra_directives: |
+              proxy_read_timeout  900;
+              proxy_pass_header   Server;
+              proxy_cookie_path ~*^/.* /;
+              proxy_pass         http://rproxy_artifactory:8081/artifactory/;
+              proxy_set_header   X-Artifactory-Override-Base-Url $http_x_forwarded_proto://$<host>:<server port>/<public context>;
+              proxy_set_header    X-Forwarded-Port  $server_port;
+              proxy_set_header    X-Forwarded-Proto $http_x_forwarded_proto;
+              proxy_set_header    Host              $http_host;
+              proxy_set_header    X-Forwarded-For   $proxy_add_x_forwarded_for;

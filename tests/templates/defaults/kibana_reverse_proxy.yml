@@ -1,13 +1,6 @@
 ---
-# defaults file for jpnewman.nginx
+nginx_vhost_filename: kibana
 
-# geerlingguy.nginx
-nginx_vhosts: []
-nginx_remove_default_vhost: true
-
-nginx_vhost_filename: localhost
-
-# defaults
 nginx_vhost_available_path: /etc/nginx/sites-available
 nginx_vhost_path: /etc/nginx/sites-enabled
 
@@ -19,18 +12,24 @@ host_aliases: []
 max_upload_size: "1024m"
 host_name: localhost
 redirect_http: false
+
 ssl_enabled: false
 ssl_listen_ports: []
+
+ssl_ca_local_path: ""
+ssl_ca_path: ""
+
+ssl_cert_local_path: ""
 ssl_cert_path: ""
+
+ssl_key_local_path: ""
 ssl_key_path: ""
 
-proxy_pass_host: 127.0.0.1
-proxy_pass_port: 8080
+proxy_pass_host: localhost
+proxy_pass_port: 5601
 
 server_auth_method: ""
 
 nginx_log_dir: "/var/log/nginx"
-nginx_error_log: "{{ nginx_log_dir }}/error.log"
-nginx_access_log: "{{ nginx_log_dir }}/access.log"
-
-nginx_template_file: nginx_reverse_proxy.conf.j2
+nginx_error_log: "{{ nginx_log_dir }}/{{ nginx_vhost_filename }}-error.log"
+nginx_access_log: "{{ nginx_log_dir }}/{{ nginx_vhost_filename}}-access.log"

@@ -1,0 +1,13 @@
+
+# Loopback
+allow 127.0.0.0/8;
+
+{% for rule in nginx_acl_rules %}
+{{ ''.join(rule['access'] + ' ' + rule['source'] + ';').ljust(32) }}{% if 'comment' in rule %} # {{ rule['comment'] }}{% endif %}
+
+{% endfor %}
+
+{% if nginx_acl_deny_all %}
+# Deny all others
+deny all;
+{% endif %}

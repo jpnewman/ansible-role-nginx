@@ -1,0 +1,14 @@
+[local]
+127.0.0.1
+
+[kibana]
+127.0.0.1
+
+[multiple_vhosts]
+127.0.0.1
+
+[drupal]
+127.0.0.1
+
+[artifactory]
+127.0.0.1

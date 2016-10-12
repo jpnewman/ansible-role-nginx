@@ -1,0 +1,84 @@
+---
+- hosts: all
+  gather_facts: no
+  become: no
+
+  vars_files:
+    - '../../defaults/main.yml'
+
+  vars:
+    ansible_fqdn: localhost
+
+  tasks:
+    - name: Generate nginx_reverse_proxy.conf
+      template: src=../../templates/nginx_reverse_proxy.conf.j2 dest=./tmp/nginx_reverse_proxy.conf
+      when: nginx_template_file is defined
+
+- hosts: kibana
+  gather_facts: no
+  become: no
+
+  vars_files:
+    - './defaults/kibana_reverse_proxy.yml'
+
+  vars:
+    ansible_fqdn: localhost
+
+  tasks:
+    - name: Generate kibana_reverse_proxy.conf
+      template: src=../../templates/nginx_reverse_proxy.conf.j2 dest=./tmp/kibana_reverse_proxy.conf
+      when: nginx_template_file is defined
+
+- hosts: multiple_vhosts
+  gather_facts: no
+  become: no
+
+  vars_files:
+    - './defaults/multiple_vhosts.yml'
+
+  vars:
+    ansible_fqdn: localhost
+
+  tasks:
+    # - debug: msg="{{ nginx_vhosts_vars.drupal.name }}" verbosity=3
+    # - debug: msg="{{ nginx_vhosts_vars.drupal.host_name }}" verbosity=3
+
+    - name: Generate nginx configurations (drupal, jenkins)
+      include: ../../tasks/templates.yml
+      with_dict: "{{ nginx_vhosts_data }}"
+      when: nginx_vhosts_data is defined
+
+    - name: Generate server_acls.conf
+      template: src=../../templates/server_acls.conf.j2 dest=./tmp/server_acls.conf
+
+- hosts: drupal
+  gather_facts: no
+  become: no
+
+  vars_files:
+    - './defaults/drupal.yml'
+
+  vars:
+    ansible_fqdn: localhost
+
+  tasks:
+    - name: Generate nginx configurations (drupal)
+      include: ../../tasks/templates.yml
+      with_dict: "{{ nginx_vhosts_data }}"
+      when: nginx_vhosts_data is defined
+
+- hosts: artifactory
+  gather_facts: no
+  become: no
+
+  vars_files:
+    - './defaults/artifactory.yml'
+
+  vars:
+    ansible_fqdn: localhost
+
+  tasks:
+    - name: Generate nginx configurations (artifactory)
+      include: ../../tasks/templates.yml
+      with_dict: "{{ nginx_vhosts_data }}"
+      when: nginx_vhosts_data is defined

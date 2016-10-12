@@ -1,0 +1,193 @@
+---
+
+nginx_acl_deny_all: true
+nginx_acl_rules:
+  - access: "allow"
+    comment: "Vagrant NetA"
+    source: "10.0.0.0/8"
+  - access: "allow"
+    comment: "Vagrant NetB"
+    source: "192.168.0.0/16"
+  - access: "deny"
+    source: "10.10.0.0/16"
+  - access: "deny"
+    comment: "TEST: Might not work as 10.0.0.0/8 is first match"
+    source: "10.20.0.0/16"
+
+# NOTE: This need to be loaded before nginx_vhosts_data is used.
+#       Otherwise nginx_vhosts_data can't be parsed as variables can't be expanded
+#       Variables in nginx_vhosts_data need to be addressed fully. e.g. nginx_vhosts_vars.drupal.host_name
+#
+#       nginx_vhosts_vars can be used to overide environment specific variables, without the need to rewrite the whole nginx_vhosts_data data structure
+#
+nginx_vhosts_vars:
+  drupal:
+    name: drupal
+    server_name: localhost
+    document_root: /var/www/drupal
+
+    host_name: localhost
+
+    ssl_enabled: true
+    ssl_cert_path: /etc/ssl/certs/notsecure.crt
+    ssl_key_path: /etc/ssl/private/notsecure.key
+
+    ssl_protocols: SSLv3 TLSv1 TLSv1.1 TLSv1.2
+    ssl_ciphers: ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS
+  jenkins:
+    name: jenkins
+    server_name: localhost
+    listen_ports: [8080]
+
+    document_root: /var/www/jenkins
+
+# NOTE: nginx_vhosts_data allows the defination of multiple vhosts
+#
+nginx_vhosts_data:
+  drupal:
+    servers:
+      - listen_ports: [80]
+        server_name: "{{ nginx_vhosts_vars.drupal.server_name }}"
+        comment: Drupal HTTP server
+        client_max_body_size: '1024m'
+        error_log: /var/log/nginx/drupal-http-error.log
+        access_log: /var/log/nginx/drupal-http-access.log
+        extra_directives: |
+          # Remove trailing slashes from URL
+          rewrite ^/(.*)/$ /$1 permanent;
+
+          # Add header to show which server generated a response.
+          add_header X-Web-Server {{ nginx_vhosts_vars.drupal.host_name }};
+        locations:
+          - location_match: /
+            extra_directives: |
+              # SSL Redirect
+              rewrite ^(.*) https://$host$1 redirect;
+          - location_match: /nginx_status
+            extra_directives: |
+              stub_status on
+              allow 127.0.0.0/8
+              deny all
+
+      - listen_ports: [443]
+        server_name: localhost
+        comment: Drupal HTTPS server
+        error_log: /var/log/nginx/drupal-https-error.log
+        access_log: /var/log/nginx/drupal-https-access.log
+        extra_directives: |
+          # Remove trailing slashes from URL
+          rewrite ^/(.*)/$ /$1 permanent;
+
+          # SSL Enabled
+          ssl on;
+          ssl_prefer_server_ciphers on;
+          ssl_protocols {{ nginx_vhosts_vars.drupal.ssl_protocols }};
+          ssl_ciphers {{ nginx_vhosts_vars.drupal.ssl_ciphers }};
+          ssl_certificate {{ nginx_vhosts_vars.drupal.ssl_cert_path }};
+          ssl_certificate_key {{ nginx_vhosts_vars.drupal.ssl_key_path }};
+
+          root {{ nginx_vhosts_vars.drupal.document_root }};
+          access_log /var/log/nginx/localhost.access.log;
+          error_log /var/log/nginx/localhost.error.log;
+
+          # Only allow valid methods
+          if ($request_method !~ ^(GET|HEAD|POST)$ ) {
+            return 444;
+          }
+
+          # Block Specific User-Agents
+          if ($http_user_agent ~* LWP::Simple|BBBike|msnbot|scrapbot|wget) {
+            return 403;
+          }
+
+          # Restrict access by IP
+          include server_acls.conf;
+
+          expires 30d;
+
+          # set the upload size to 20M
+          client_max_body_size 20M;
+          client_body_buffer_size 128k;
+
+          index index.php;
+          error_page 404 index.php;
+        locations:
+          - location_match: /
+            extra_directives: |
+              try_files $uri $uri/ @drupal;
+
+              auth_basic "restricted";
+              auth_basic_user_file htpasswd/drupalv3_htpasswd;
+          - match_modifier: '~'
+            location_match: /fpm-(status|ping)
+            extra_directives: |
+              fastcgi_pass 127.0.0.1:9000;
+              include fastcgi_params;
+          - match_modifier: '~'
+            location_match: /apc.php
+            extra_directives: |
+              fastcgi_pass 127.0.0.1:9000;
+              include fastcgi_params;
+              alias /usr/share/doc/php-apc/apc.php;
+          - location_match: '@drupal'
+            extra_directives: |
+              rewrite ^ /index.php?q=$uri last;
+          - match_modifier: '~'
+            location_match: (update\.php|install\.php|cron\.php|settings\.php.*)$
+            comment: Deny access to Drupal specific php files.
+            extra_directives: |
+              deny all;
+          - match_modifier: '~'
+            location_match: \.php$
+            extra_directives: |
+              fastcgi_pass 127.0.0.1:9000;
+              fastcgi_index index.php;
+              fastcgi_param CONTENT_LENGTH $content_length;
+              fastcgi_param CONTENT_TYPE $content_type;
+              fastcgi_param DOCUMENT_ROOT $document_root;
+              fastcgi_param DOCUMENT_URI $document_uri;
+              fastcgi_param GATEWAY_INTERFACE CGI/1.1;
+              fastcgi_param QUERY_STRING $query_string;
+              fastcgi_param REMOTE_ADDR $remote_addr;
+              fastcgi_param REMOTE_PORT $remote_port;
+              fastcgi_param REQUEST_METHOD $request_method;
+              fastcgi_param REQUEST_URI $request_uri;
+              fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+              fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+              fastcgi_param SERVER_ADDR $server_addr;
+              fastcgi_param SERVER_NAME $server_name;
+              fastcgi_param SERVER_PORT $server_port;
+              fastcgi_param SERVER_PROTOCOL $server_protocol;
+              fastcgi_param SERVER_SOFTWARE nginx;
+              expires off;
+          - match_modifier: '~'
+            location_match: /(deploy|patches)
+            comment: Deny access to protected directories.
+            extra_directives: |
+              deny all;
+          - location_match: ~*\.(jstd|patch|tar|gz|pgp|tgz|bz2|zip|xml|engine|inc|info|install|module|profile|po|sh|.*sql|theme|tpl(\.php)?|xtmpl|json)$|^(code-style\.pl|Entries.*|Repository|Root|Tag|Template|drush)$
+            comment: Deny access to specific file types.
+            extra_directives: |
+              location ~ (sitemap\.xml|sitemap\.json)$ {
+                allow all;
+              }
+              location ~ (BingSiteAuth.xml)$ {
+                allow all;
+              }
+
+              deny all;
+          - location_match: /nginx_status
+            extra_directives: |
+              stub_status on;
+              allow 127.0.0.0/8;
+              deny all;
+  jenkins:
+    servers:
+      - listen_ports: "{{ nginx_vhosts_vars.jenkins.listen_ports }}"
+        server_name: "{{ nginx_vhosts_vars.jenkins.server_name }}"
+        extra_directives: |
+          root {{ nginx_vhosts_vars.jenkins.document_root }};
+        locations:
+          - location_match: /
+            extra_directives: |
+              allow all;

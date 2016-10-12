@@ -11,15 +11,23 @@
   become: yes
   tags: nginx
 
-- name: ssl certs dir
-  file: path=/etc/ssl/certs mode=755 state=directory owner=root
+- name: Creating SSL certs CA directory
+  file: path={{ ssl_ca_path | dirname }} mode=755 state=directory owner=root
   become: yes
   tags: ssl
+  when: ssl_ca_path is defined and ssl_ca_path
 
-- name: ssl private dir
-  file: path=/etc/ssl/private mode=700 state=directory owner=root
+- name: Creating SSL certs directory
+  file: path={{ ssl_cert_path | dirname }} mode=755 state=directory owner=root
   become: yes
   tags: ssl
+  when: ssl_cert_path is defined and ssl_cert_path
+
+- name: Creating SSL private directory
+  file: path={{ ssl_key_path | dirname }} mode=700 state=directory owner=root
+  become: yes
+  tags: ssl
+  when: ssl_key_path is defined and ssl_key_path
 
 - name: Copying SSL CA
   copy:
@@ -56,11 +64,22 @@
 # Create vhost
 - name: Add managed vhost config file
   template:
-    src: nginx.conf.j2
+    src: "{{ nginx_template_file }}"
     dest: "{{ nginx_vhost_available_path }}/{{ nginx_vhost_filename }}.conf"
     mode: 0644
   tags: vhost
+  when: nginx_template_file is defined
   notify: reload nginx
+
+- name: Generate multiple nginx configurations
+  include: templates.yml
+  with_dict: "{{ nginx_vhosts_data }}"
+  when: nginx_vhosts_data is defined
+  notify: reload nginx
+
+- name: Generate server_acls.conf
+  template: src=server_acls.conf.j2 dest=./tmp/server_acls.conf
+  when: nginx_acl_rules is defined
 
 - name: Create symlink to nginx.conf
   file: src="{{ nginx_vhost_available_path }}/{{ nginx_vhost_filename }}.conf" dest="{{ nginx_vhost_path }}/{{ nginx_vhost_filename }}.conf" state=link
