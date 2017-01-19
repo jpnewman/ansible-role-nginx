@@ -73,8 +73,7 @@
 
 - name: Generate multiple nginx configurations
   include: templates.yml
-  with_dict: "{{ nginx_vhosts_data }}"
-  when: nginx_vhosts_data is defined
+  with_dict: "{{ nginx_vhosts_data | default({}) }}"
   notify: reload nginx
 
 - name: Generate server_acls.conf

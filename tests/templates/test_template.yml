@@ -45,8 +45,7 @@
 
     - name: Generate nginx configurations (drupal, jenkins)
       include: ../../tasks/templates.yml
-      with_dict: "{{ nginx_vhosts_data }}"
-      when: nginx_vhosts_data is defined
+      with_dict: "{{ nginx_vhosts_data | default({}) }}"
 
     - name: Generate server_acls.conf
       template: src=../../templates/server_acls.conf.j2 dest=./tmp/server_acls.conf
@@ -64,8 +63,7 @@
   tasks:
     - name: Generate nginx configurations (drupal)
       include: ../../tasks/templates.yml
-      with_dict: "{{ nginx_vhosts_data }}"
-      when: nginx_vhosts_data is defined
+      with_dict: "{{ nginx_vhosts_data | default({}) }}"
 
 - hosts: artifactory
   gather_facts: no
@@ -80,5 +78,4 @@
   tasks:
     - name: Generate nginx configurations (artifactory)
       include: ../../tasks/templates.yml
-      with_dict: "{{ nginx_vhosts_data }}"
-      when: nginx_vhosts_data is defined
+      with_dict: "{{ nginx_vhosts_data | default({}) }}"
