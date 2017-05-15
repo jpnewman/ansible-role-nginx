@@ -30,7 +30,7 @@ nginx_vhosts_vars:
 
     ssl_enabled: true
     ssl_cert_path: /etc/ssl/certs/notsecure.crt
-    ssl_key_path: /etc/ssl/private/notsecure.key
+    ssl_key_path: /etc/ssl/private/notsecure.pk8
 
     ssl_protocols: SSLv3 TLSv1 TLSv1.1 TLSv1.2
     ssl_ciphers: ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS

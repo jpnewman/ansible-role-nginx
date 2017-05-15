@@ -8,7 +8,9 @@
     extra_directives: "{{ item.value.extra_directives | default('') }}"
 
 - name: Generate nginx configurations
-  template: src=../../templates/nginx.conf.j2 dest=./tmp/{{ item.key }}.conf
+  template:
+    src: ../../templates/nginx.conf.j2
+    dest: "./tmp/{{ item.key }}.conf"
 
 - set_fact:
     servers: ''
